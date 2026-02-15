@@ -21,6 +21,7 @@ from kubernetes.client import ApiException
 import pytest
 
 from kubeflow.common.types import KubernetesBackendConfig
+from kubeflow.spark.backends.kubernetes import constants
 from kubeflow.spark.backends.kubernetes.backend import KubernetesBackend
 from kubeflow.spark.backends.kubernetes.utils import validate_spark_connect_url
 from kubeflow.spark.test.common import (
@@ -86,9 +87,30 @@ def create_error_thread(exc: Exception):
 
 
 def mock_get_response(name: str) -> dict:
-    """Return mock CRD response based on session name."""
+    """Return mock CRD response based on session name.
+
+    Note: Responses must include all fields required by the Pydantic model's from_dict().
+    """
+    base_response = {
+        "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+        "kind": constants.SPARK_CONNECT_KIND,
+        "spec": {
+            "sparkVersion": constants.DEFAULT_SPARK_VERSION,
+            "image": constants.DEFAULT_SPARK_IMAGE,
+            "server": {
+                "cores": constants.DEFAULT_DRIVER_CPU,
+                "memory": constants.DEFAULT_DRIVER_MEMORY,
+            },
+            "executor": {
+                "instances": 2,
+                "cores": constants.DEFAULT_EXECUTOR_CPU,
+                "memory": constants.DEFAULT_EXECUTOR_MEMORY,
+            },
+        },
+    }
     if name == SPARK_CONNECT_READY:
         return {
+            **base_response,
             "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
             "status": {
                 "state": "Ready",
@@ -97,15 +119,92 @@ def mock_get_response(name: str) -> dict:
         }
     elif name == SPARK_CONNECT_PROVISIONING:
         return {
+            **base_response,
             "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
             "status": {"state": "Provisioning"},
         }
     elif name == SPARK_CONNECT_FAILED:
         return {
+            **base_response,
             "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
             "status": {"state": "Failed"},
         }
     raise ApiException(status=404, reason="Not Found")
+
+
+def mock_list_response(*args, **kwargs) -> dict:
+    """Return mock list response.
+
+    Note: List responses must include all fields required by SparkConnectList.from_dict().
+    """
+    base_spec = {
+        "sparkVersion": constants.DEFAULT_SPARK_VERSION,
+        "image": constants.DEFAULT_SPARK_IMAGE,
+        "server": {
+            "cores": constants.DEFAULT_DRIVER_CPU,
+            "memory": constants.DEFAULT_DRIVER_MEMORY,
+        },
+        "executor": {
+            "instances": 2,
+            "cores": constants.DEFAULT_EXECUTOR_CPU,
+            "memory": constants.DEFAULT_EXECUTOR_MEMORY,
+        },
+    }
+    return {
+        "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+        "kind": "SparkConnectList",
+        "items": [
+            {
+                "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+                "kind": constants.SPARK_CONNECT_KIND,
+                "metadata": {"name": "session-1", "namespace": DEFAULT_NAMESPACE},
+                "spec": base_spec,
+                "status": {"state": "Ready"},
+            },
+            {
+                "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+                "kind": constants.SPARK_CONNECT_KIND,
+                "metadata": {"name": "session-2", "namespace": DEFAULT_NAMESPACE},
+                "spec": base_spec,
+                "status": {"state": "Provisioning"},
+            },
+        ],
+    }
+
+
+def mock_create_response(*args, **kwargs) -> dict:
+    """Return mock create response.
+
+    Note: Create responses must include all fields required by SparkConnect.from_dict().
+    """
+    body = kwargs.get("body", {})
+    return {
+        "apiVersion": body.get(
+            "apiVersion", f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}"
+        ),
+        "kind": body.get(
+            "kind",
+            constants.SPARK_CONNECT_KIND,
+        ),
+        "metadata": body.get("metadata", {}),
+        "spec": body.get(
+            "spec",
+            {
+                "sparkVersion": constants.DEFAULT_SPARK_VERSION,
+                "image": constants.DEFAULT_SPARK_IMAGE,
+                "server": {
+                    "cores": constants.DEFAULT_DRIVER_CPU,
+                    "memory": constants.DEFAULT_DRIVER_MEMORY,
+                },
+                "executor": {
+                    "instances": 2,
+                    "cores": constants.DEFAULT_EXECUTOR_CPU,
+                    "memory": constants.DEFAULT_EXECUTOR_MEMORY,
+                },
+            },
+        ),
+        "status": {"state": "Provisioning"},
+    }
 
 
 def mock_delete_response(name: str) -> None:

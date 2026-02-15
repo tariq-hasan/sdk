@@ -9,7 +9,7 @@ COPY pyproject.toml README.md LICENSE ./
 COPY kubeflow/ kubeflow/
 COPY examples/ examples/
 
-RUN pip install --no-cache-dir .[spark]
+RUN pip install --no-cache-dir --pre .[spark]
 
 ENV SPARK_TEST_NAMESPACE=spark-test
 ENV PYTHONUNBUFFERED=1

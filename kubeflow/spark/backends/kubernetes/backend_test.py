@@ -17,6 +17,7 @@
 import multiprocessing
 from unittest.mock import Mock, patch
 
+from kubeflow_spark_api import models
 from kubernetes.client import ApiException
 import pytest
 
@@ -86,125 +87,80 @@ def create_error_thread(exc: Exception):
     return mock_thread
 
 
-def mock_get_response(name: str) -> dict:
-    """Return mock CRD response based on session name.
+def get_spark_connect(
+    name: str,
+    namespace: str = DEFAULT_NAMESPACE,
+    state: str | None = None,
+    server_status: models.SparkV1alpha1SparkConnectServerStatus | None = None,
+) -> models.SparkV1alpha1SparkConnect:
+    """Create a mock SparkConnect model for testing."""
+    return models.SparkV1alpha1SparkConnect(
+        api_version=f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+        kind=constants.SPARK_CONNECT_KIND,
+        metadata=models.IoK8sApimachineryPkgApisMetaV1ObjectMeta(
+            name=name,
+            namespace=namespace,
+        ),
+        spec=models.SparkV1alpha1SparkConnectSpec(
+            spark_version=constants.DEFAULT_SPARK_VERSION,
+            image=constants.DEFAULT_SPARK_IMAGE,
+            server=models.SparkV1alpha1ServerSpec(
+                cores=constants.DEFAULT_DRIVER_CPU,
+                memory=constants.DEFAULT_DRIVER_MEMORY,
+            ),
+            executor=models.SparkV1alpha1ExecutorSpec(
+                instances=2,
+                cores=constants.DEFAULT_EXECUTOR_CPU,
+                memory=constants.DEFAULT_EXECUTOR_MEMORY,
+            ),
+        ),
+        status=models.SparkV1alpha1SparkConnectStatus(
+            state=state,
+            server=server_status,
+        )
+        if state
+        else None,
+    )
 
-    Note: Responses must include all fields required by the Pydantic model's from_dict().
-    """
-    base_response = {
-        "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
-        "kind": constants.SPARK_CONNECT_KIND,
-        "spec": {
-            "sparkVersion": constants.DEFAULT_SPARK_VERSION,
-            "image": constants.DEFAULT_SPARK_IMAGE,
-            "server": {
-                "cores": constants.DEFAULT_DRIVER_CPU,
-                "memory": constants.DEFAULT_DRIVER_MEMORY,
-            },
-            "executor": {
-                "instances": 2,
-                "cores": constants.DEFAULT_EXECUTOR_CPU,
-                "memory": constants.DEFAULT_EXECUTOR_MEMORY,
-            },
-        },
-    }
+
+def mock_get_response(name: str) -> dict:
+    """Return mock CRD response based on session name."""
     if name == SPARK_CONNECT_READY:
-        return {
-            **base_response,
-            "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
-            "status": {
-                "state": "Ready",
-                "server": {"podName": f"{name}-0", "podIp": "10.0.0.5"},
-            },
-        }
+        return get_spark_connect(
+            name=name,
+            state="Ready",
+            server_status=models.SparkV1alpha1SparkConnectServerStatus(
+                pod_name=f"{name}-0",
+                pod_ip="10.0.0.5",
+            ),
+        ).to_dict()
     elif name == SPARK_CONNECT_PROVISIONING:
-        return {
-            **base_response,
-            "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
-            "status": {"state": "Provisioning"},
-        }
+        return get_spark_connect(name=name, state="Provisioning").to_dict()
     elif name == SPARK_CONNECT_FAILED:
-        return {
-            **base_response,
-            "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
-            "status": {"state": "Failed"},
-        }
+        return get_spark_connect(name=name, state="Failed").to_dict()
     raise ApiException(status=404, reason="Not Found")
 
 
 def mock_list_response(*args, **kwargs) -> dict:
-    """Return mock list response.
-
-    Note: List responses must include all fields required by SparkConnectList.from_dict().
-    """
-    base_spec = {
-        "sparkVersion": constants.DEFAULT_SPARK_VERSION,
-        "image": constants.DEFAULT_SPARK_IMAGE,
-        "server": {
-            "cores": constants.DEFAULT_DRIVER_CPU,
-            "memory": constants.DEFAULT_DRIVER_MEMORY,
-        },
-        "executor": {
-            "instances": 2,
-            "cores": constants.DEFAULT_EXECUTOR_CPU,
-            "memory": constants.DEFAULT_EXECUTOR_MEMORY,
-        },
-    }
-    return {
-        "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
-        "kind": "SparkConnectList",
-        "items": [
-            {
-                "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
-                "kind": constants.SPARK_CONNECT_KIND,
-                "metadata": {"name": "session-1", "namespace": DEFAULT_NAMESPACE},
-                "spec": base_spec,
-                "status": {"state": "Ready"},
-            },
-            {
-                "apiVersion": f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
-                "kind": constants.SPARK_CONNECT_KIND,
-                "metadata": {"name": "session-2", "namespace": DEFAULT_NAMESPACE},
-                "spec": base_spec,
-                "status": {"state": "Provisioning"},
-            },
+    """Return mock list response."""
+    spark_connect_list = models.SparkV1alpha1SparkConnectList(
+        api_version=f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+        kind="SparkConnectList",
+        items=[
+            get_spark_connect(name="session-1", state="Ready"),
+            get_spark_connect(name="session-2", state="Provisioning"),
         ],
-    }
+    )
+    return spark_connect_list.to_dict()
 
 
 def mock_create_response(*args, **kwargs) -> dict:
-    """Return mock create response.
-
-    Note: Create responses must include all fields required by SparkConnect.from_dict().
-    """
+    """Return mock create response."""
     body = kwargs.get("body", {})
-    return {
-        "apiVersion": body.get(
-            "apiVersion", f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}"
-        ),
-        "kind": body.get(
-            "kind",
-            constants.SPARK_CONNECT_KIND,
-        ),
-        "metadata": body.get("metadata", {}),
-        "spec": body.get(
-            "spec",
-            {
-                "sparkVersion": constants.DEFAULT_SPARK_VERSION,
-                "image": constants.DEFAULT_SPARK_IMAGE,
-                "server": {
-                    "cores": constants.DEFAULT_DRIVER_CPU,
-                    "memory": constants.DEFAULT_DRIVER_MEMORY,
-                },
-                "executor": {
-                    "instances": 2,
-                    "cores": constants.DEFAULT_EXECUTOR_CPU,
-                    "memory": constants.DEFAULT_EXECUTOR_MEMORY,
-                },
-            },
-        ),
-        "status": {"state": "Provisioning"},
-    }
+    # Parse the request body and add status
+    spark_connect = models.SparkV1alpha1SparkConnect.from_dict(body)
+    spark_connect.status = models.SparkV1alpha1SparkConnectStatus(state="Provisioning")
+    return spark_connect.to_dict()
 
 
 def mock_delete_response(name: str) -> None:

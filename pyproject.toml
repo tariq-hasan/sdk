@@ -44,6 +44,7 @@ spark = [
     # Match major.minor to SparkConnect server image (see kubeflow.spark.backends.kubernetes.constants)
     # Use [connect] extra to get compatible grpcio, pandas, pyarrow versions automatically
     "pyspark[connect]==3.4.1",
+    "kubeflow-spark-api>=2.3.0",
 ]
 hub = [
   "model-registry>=0.3.6",

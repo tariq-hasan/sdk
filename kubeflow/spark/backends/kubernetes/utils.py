@@ -85,7 +85,7 @@ def build_service_url(info: SparkConnectInfo) -> str:
 
 
 def get_server_spec_from_driver(
-    driver: Optional[Driver] = None,
+    driver: Driver | None = None,
 ) -> models.SparkV1alpha1ServerSpec:
     """Convert SDK Driver to API ServerSpec.
 
@@ -123,9 +123,9 @@ def get_server_spec_from_driver(
 
 
 def get_executor_spec_from_executor(
-    executor: Optional[Executor] = None,
-    num_executors: Optional[int] = None,
-    resources_per_executor: Optional[dict[str, str]] = None,
+    executor: Executor | None = None,
+    num_executors: int | None = None,
+    resources_per_executor: dict[str, str] | None = None,
 ) -> models.SparkV1alpha1ExecutorSpec:
     """Convert SDK Executor to API ExecutorSpec.
 
@@ -142,9 +142,9 @@ def get_executor_spec_from_executor(
         API ExecutorSpec model.
     """
     # Determine number of instances
-    if executor and executor.num_instances is not None:
+    if executor and executor.num_instances:
         instances = executor.num_instances
-    elif num_executors is not None:
+    elif num_executors:
         instances = num_executors
     else:
         instances = constants.DEFAULT_NUM_EXECUTORS
@@ -296,7 +296,7 @@ def get_spark_connect_info_from_cr(
 
     return SparkConnectInfo(
         name=spark_connect_cr.metadata.name,
-        namespace=spark_connect_cr.metadata.namespace or "",
+        namespace=spark_connect_cr.metadata.namespace,
         state=state,
         pod_name=server_status.pod_name if server_status else None,
         pod_ip=server_status.pod_ip if server_status else None,

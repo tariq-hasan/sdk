@@ -113,22 +113,21 @@ class TestBuildSparkConnectCrd:
     def test_minimal_crd(self):
         """U01: Build SparkConnect CRD with minimal config."""
         spark_connect = build_spark_connect_crd(name="test-session", namespace="default")
-        crd = spark_connect.to_dict()
 
         assert (
-            crd["apiVersion"]
+            spark_connect.api_version
             == f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}"
         )
-        assert crd["kind"] == constants.SPARK_CONNECT_KIND
-        assert crd["metadata"]["name"] == "test-session"
-        assert crd["metadata"]["namespace"] == "default"
-        assert crd["spec"]["sparkVersion"] == constants.DEFAULT_SPARK_VERSION
-        assert crd["spec"]["executor"]["instances"] == constants.DEFAULT_NUM_EXECUTORS
-        assert crd["spec"]["executor"]["cores"] == constants.DEFAULT_EXECUTOR_CPU
-        assert crd["spec"]["executor"]["memory"] == "512m"
-        assert crd["spec"]["server"]["cores"] == constants.DEFAULT_DRIVER_CPU
-        assert crd["spec"]["server"]["memory"] == "512m"
-        assert crd["spec"]["sparkConf"]["spark.connect.grpc.binding.address"] == "0.0.0.0"
+        assert spark_connect.kind == constants.SPARK_CONNECT_KIND
+        assert spark_connect.metadata.name == "test-session"
+        assert spark_connect.metadata.namespace == "default"
+        assert spark_connect.spec.spark_version == constants.DEFAULT_SPARK_VERSION
+        assert spark_connect.spec.executor.instances == constants.DEFAULT_NUM_EXECUTORS
+        assert spark_connect.spec.executor.cores == constants.DEFAULT_EXECUTOR_CPU
+        assert spark_connect.spec.executor.memory == "512m"
+        assert spark_connect.spec.server.cores == constants.DEFAULT_DRIVER_CPU
+        assert spark_connect.spec.server.memory == "512m"
+        assert spark_connect.spec.spark_conf["spark.connect.grpc.binding.address"] == "0.0.0.0"
 
     def test_with_num_executors(self):
         """U02: Build CRD with num_executors."""
@@ -137,8 +136,7 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             num_executors=3,
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["executor"]["instances"] == 3
+        assert spark_connect.spec.executor.instances == 3
 
     def test_with_resources(self):
         """U03: Build CRD with resources_per_executor."""
@@ -147,9 +145,8 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             resources_per_executor={"cpu": "2", "memory": "4Gi"},
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["executor"]["cores"] == 2
-        assert crd["spec"]["executor"]["memory"] == "4g"
+        assert spark_connect.spec.executor.cores == 2
+        assert spark_connect.spec.executor.memory == "4g"
 
     def test_with_spark_conf(self):
         """U04: Build CRD with spark_conf."""
@@ -159,11 +156,10 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             spark_conf=spark_conf,
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["sparkConf"]["spark.jars"].endswith(
+        assert spark_connect.spec.spark_conf["spark.jars"].endswith(
             f"spark-connect_2.12-{constants.DEFAULT_SPARK_VERSION}.jar"
         )
-        assert crd["spec"]["sparkConf"]["spark.sql.adaptive.enabled"] == "true"
+        assert spark_connect.spec.spark_conf["spark.sql.adaptive.enabled"] == "true"
 
     def test_spark_conf_overrides_binding_address(self):
         """User spark_conf can override default grpc binding address."""
@@ -172,8 +168,7 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             spark_conf={"spark.connect.grpc.binding.address": "127.0.0.1"},
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["sparkConf"]["spark.connect.grpc.binding.address"] == "127.0.0.1"
+        assert spark_connect.spec.spark_conf["spark.connect.grpc.binding.address"] == "127.0.0.1"
 
     def test_with_driver_image(self):
         """U05: Build CRD with custom image via Driver."""
@@ -183,8 +178,7 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             driver=driver,
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["image"] == "custom-spark:v1"
+        assert spark_connect.spec.image == "custom-spark:v1"
 
     def test_with_driver_config(self):
         """U06: Build CRD with Driver config (KEP-107 resources dict)."""
@@ -194,9 +188,8 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             driver=driver,
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["server"]["cores"] == 2
-        assert crd["spec"]["server"]["memory"] == "2g"
+        assert spark_connect.spec.server.cores == 2
+        assert spark_connect.spec.server.memory == "2g"
 
     def test_with_service_account(self):
         """U07: Build CRD with service account."""
@@ -206,8 +199,7 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             driver=driver,
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["server"]["template"]["spec"]["serviceAccountName"] == "spark-sa"
+        assert spark_connect.spec.server.template.spec.service_account_name == "spark-sa"
 
     def test_with_executor_config(self):
         """Build CRD with Executor config (KEP-107 resources_per_executor)."""
@@ -220,10 +212,9 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             executor=executor,
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["executor"]["instances"] == 5
-        assert crd["spec"]["executor"]["cores"] == 4
-        assert crd["spec"]["executor"]["memory"] == "8g"
+        assert spark_connect.spec.executor.instances == 5
+        assert spark_connect.spec.executor.cores == 4
+        assert spark_connect.spec.executor.memory == "8g"
 
     def test_app_name(self):
         """Build CRD with spark.app.name via spark_conf."""
@@ -232,11 +223,10 @@ class TestBuildSparkConnectCrd:
             namespace="default",
             spark_conf={"spark.app.name": "my-spark-app"},
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["sparkConf"]["spark.jars"].endswith(
+        assert spark_connect.spec.spark_conf["spark.jars"].endswith(
             f"spark-connect_2.12-{constants.DEFAULT_SPARK_VERSION}.jar"
         )
-        assert crd["spec"]["sparkConf"]["spark.app.name"] == "my-spark-app"
+        assert spark_connect.spec.spark_conf["spark.app.name"] == "my-spark-app"
 
     def test_precedence_executor_instances(self):
         """Test precedence: executor.num_instances > num_executors."""
@@ -247,9 +237,8 @@ class TestBuildSparkConnectCrd:
             num_executors=5,
             executor=executor,
         )
-        crd = spark_connect.to_dict()
         # Executor object should override simple parameter
-        assert crd["spec"]["executor"]["instances"] == 10
+        assert spark_connect.spec.executor.instances == 10
 
     def test_precedence_executor_resources(self):
         """Test precedence: executor.resources_per_executor > resources_per_executor."""
@@ -262,10 +251,9 @@ class TestBuildSparkConnectCrd:
             resources_per_executor={"cpu": "4", "memory": "8Gi"},
             executor=executor,
         )
-        crd = spark_connect.to_dict()
         # Executor object should override simple parameter
-        assert crd["spec"]["executor"]["cores"] == 8
-        assert crd["spec"]["executor"]["memory"] == "16g"
+        assert spark_connect.spec.executor.cores == 8
+        assert spark_connect.spec.executor.memory == "16g"
 
     def test_kep107_level2_simple(self):
         """Test KEP-107 Level 2 (simple mode) example."""
@@ -275,10 +263,9 @@ class TestBuildSparkConnectCrd:
             num_executors=5,
             resources_per_executor={"cpu": "5", "memory": "10Gi"},
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["executor"]["instances"] == 5
-        assert crd["spec"]["executor"]["cores"] == 5
-        assert crd["spec"]["executor"]["memory"] == "10g"
+        assert spark_connect.spec.executor.instances == 5
+        assert spark_connect.spec.executor.cores == 5
+        assert spark_connect.spec.executor.memory == "10g"
 
     def test_kep107_level3_advanced(self):
         """Test KEP-107 Level 3 (advanced mode) example."""
@@ -296,15 +283,12 @@ class TestBuildSparkConnectCrd:
             driver=driver,
             executor=executor,
         )
-        crd = spark_connect.to_dict()
-        assert crd["spec"]["server"]["cores"] == 4
-        assert crd["spec"]["server"]["memory"] == "8g"
-        assert (
-            crd["spec"]["server"]["template"]["spec"]["serviceAccountName"] == "spark-driver-prod"
-        )
-        assert crd["spec"]["executor"]["instances"] == 20
-        assert crd["spec"]["executor"]["cores"] == 8
-        assert crd["spec"]["executor"]["memory"] == "32g"
+        assert spark_connect.spec.server.cores == 4
+        assert spark_connect.spec.server.memory == "8g"
+        assert spark_connect.spec.server.template.spec.service_account_name == "spark-driver-prod"
+        assert spark_connect.spec.executor.instances == 20
+        assert spark_connect.spec.executor.cores == 8
+        assert spark_connect.spec.executor.memory == "32g"
 
 
 class TestGetSparkConnectInfoFromCr:

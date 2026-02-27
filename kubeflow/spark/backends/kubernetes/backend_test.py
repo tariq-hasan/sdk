@@ -124,7 +124,7 @@ def get_spark_connect(
 
 
 def mock_get_response(name: str) -> dict:
-    """Return mock CRD response based on session name."""
+    """Return mock CR response based on session name."""
     if name == SPARK_CONNECT_READY:
         return get_spark_connect(
             name=name,

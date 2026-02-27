@@ -173,7 +173,7 @@ def get_executor_spec_from_executor(
     )
 
 
-def build_spark_connect_crd(
+def build_spark_connect_cr(
     name: str,
     namespace: str,
     spark_version: str | None = None,
@@ -185,7 +185,7 @@ def build_spark_connect_crd(
     options: list | None = None,
     backend: Any | None = None,
 ) -> models.SparkV1alpha1SparkConnect:
-    """Build SparkConnect CRD using typed API models (KEP-107 compliant).
+    """Build SparkConnect CR using typed API models (KEP-107 compliant).
 
     Precedence rules:
     - Executor instances: executor.num_instances > num_executors > default
@@ -206,7 +206,7 @@ def build_spark_connect_crd(
         backend: Backend instance for option validation.
 
     Returns:
-        SparkConnect CRD as typed Pydantic model.
+        SparkConnect CR as typed Pydantic model.
     """
     spark_version = spark_version or constants.DEFAULT_SPARK_VERSION
 

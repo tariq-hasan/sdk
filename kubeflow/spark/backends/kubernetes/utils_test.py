@@ -21,7 +21,7 @@ from kubeflow.spark.backends.kubernetes import constants
 from kubeflow.spark.backends.kubernetes.utils import (
     _memory_kubernetes_to_spark,
     build_service_url,
-    build_spark_connect_crd,
+    build_spark_connect_cr,
     generate_session_name,
     get_spark_connect_info_from_cr,
     validate_spark_connect_url,
@@ -107,12 +107,12 @@ class TestBuildServiceUrl:
         assert "my-session-svc" in url
 
 
-class TestBuildSparkConnectCrd:
-    """Tests for build_spark_connect_crd function."""
+class TestBuildSparkConnectCr:
+    """Tests for build_spark_connect_cr function."""
 
-    def test_minimal_crd(self):
-        """U01: Build SparkConnect CRD with minimal config."""
-        spark_connect = build_spark_connect_crd(name="test-session", namespace="default")
+    def test_minimal_cr(self):
+        """U01: Build SparkConnect CR with minimal config."""
+        spark_connect = build_spark_connect_cr(name="test-session", namespace="default")
 
         assert (
             spark_connect.api_version
@@ -130,8 +130,8 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.spark_conf["spark.connect.grpc.binding.address"] == "0.0.0.0"
 
     def test_with_num_executors(self):
-        """U02: Build CRD with num_executors."""
-        spark_connect = build_spark_connect_crd(
+        """U02: Build CR with num_executors."""
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             num_executors=3,
@@ -139,8 +139,8 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.executor.instances == 3
 
     def test_with_resources(self):
-        """U03: Build CRD with resources_per_executor."""
-        spark_connect = build_spark_connect_crd(
+        """U03: Build CR with resources_per_executor."""
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             resources_per_executor={"cpu": "2", "memory": "4Gi"},
@@ -149,9 +149,9 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.executor.memory == "4g"
 
     def test_with_spark_conf(self):
-        """U04: Build CRD with spark_conf."""
+        """U04: Build CR with spark_conf."""
         spark_conf = {"spark.sql.adaptive.enabled": "true"}
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             spark_conf=spark_conf,
@@ -163,7 +163,7 @@ class TestBuildSparkConnectCrd:
 
     def test_spark_conf_overrides_binding_address(self):
         """User spark_conf can override default grpc binding address."""
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             spark_conf={"spark.connect.grpc.binding.address": "127.0.0.1"},
@@ -171,9 +171,9 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.spark_conf["spark.connect.grpc.binding.address"] == "127.0.0.1"
 
     def test_with_driver_image(self):
-        """U05: Build CRD with custom image via Driver."""
+        """U05: Build CR with custom image via Driver."""
         driver = Driver(image="custom-spark:v1")
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             driver=driver,
@@ -181,9 +181,9 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.image == "custom-spark:v1"
 
     def test_with_driver_config(self):
-        """U06: Build CRD with Driver config (KEP-107 resources dict)."""
+        """U06: Build CR with Driver config (KEP-107 resources dict)."""
         driver = Driver(resources={"cpu": "2", "memory": "2Gi"})
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             driver=driver,
@@ -192,9 +192,9 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.server.memory == "2g"
 
     def test_with_service_account(self):
-        """U07: Build CRD with service account."""
+        """U07: Build CR with service account."""
         driver = Driver(service_account="spark-sa")
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             driver=driver,
@@ -202,12 +202,12 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.server.template.spec.service_account_name == "spark-sa"
 
     def test_with_executor_config(self):
-        """Build CRD with Executor config (KEP-107 resources_per_executor)."""
+        """Build CR with Executor config (KEP-107 resources_per_executor)."""
         executor = Executor(
             num_instances=5,
             resources_per_executor={"cpu": "4", "memory": "8Gi"},
         )
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             executor=executor,
@@ -217,8 +217,8 @@ class TestBuildSparkConnectCrd:
         assert spark_connect.spec.executor.memory == "8g"
 
     def test_app_name(self):
-        """Build CRD with spark.app.name via spark_conf."""
-        spark_connect = build_spark_connect_crd(
+        """Build CR with spark.app.name via spark_conf."""
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             spark_conf={"spark.app.name": "my-spark-app"},
@@ -231,7 +231,7 @@ class TestBuildSparkConnectCrd:
     def test_precedence_executor_instances(self):
         """Test precedence: executor.num_instances > num_executors."""
         executor = Executor(num_instances=10)
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             num_executors=5,
@@ -245,7 +245,7 @@ class TestBuildSparkConnectCrd:
         executor = Executor(
             resources_per_executor={"cpu": "8", "memory": "16Gi"},
         )
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             resources_per_executor={"cpu": "4", "memory": "8Gi"},
@@ -257,7 +257,7 @@ class TestBuildSparkConnectCrd:
 
     def test_kep107_level2_simple(self):
         """Test KEP-107 Level 2 (simple mode) example."""
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             num_executors=5,
@@ -277,7 +277,7 @@ class TestBuildSparkConnectCrd:
             num_instances=20,
             resources_per_executor={"cpu": "8", "memory": "32Gi"},
         )
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name="test-session",
             namespace="default",
             driver=driver,
@@ -304,7 +304,7 @@ class TestGetSparkConnectInfoFromCr:
         )
 
     def test_parse_ready_status(self, minimal_spec):
-        """U08: Parse CRD with Ready state."""
+        """U08: Parse CR with Ready state."""
         spark_connect_cr = models.SparkV1alpha1SparkConnect(
             metadata=models.IoK8sApimachineryPkgApisMetaV1ObjectMeta(
                 name="my-session",
@@ -332,7 +332,7 @@ class TestGetSparkConnectInfoFromCr:
         assert info.creation_timestamp is not None
 
     def test_parse_provisioning_status(self, minimal_spec):
-        """U09: Parse CRD with Provisioning state."""
+        """U09: Parse CR with Provisioning state."""
         spark_connect_cr = models.SparkV1alpha1SparkConnect(
             metadata=models.IoK8sApimachineryPkgApisMetaV1ObjectMeta(
                 name="new-session",
@@ -348,7 +348,7 @@ class TestGetSparkConnectInfoFromCr:
         assert info.state == SparkConnectState.PROVISIONING
 
     def test_parse_failed_status(self, minimal_spec):
-        """U10: Parse CRD with Failed state."""
+        """U10: Parse CR with Failed state."""
         spark_connect_cr = models.SparkV1alpha1SparkConnect(
             metadata=models.IoK8sApimachineryPkgApisMetaV1ObjectMeta(
                 name="failed-session",
@@ -362,7 +362,7 @@ class TestGetSparkConnectInfoFromCr:
         assert info.state == SparkConnectState.FAILED
 
     def test_parse_running_status(self, minimal_spec):
-        """Parse CRD with Running state (operator may set this when server is up)."""
+        """Parse CR with Running state (operator may set this when server is up)."""
         spark_connect_cr = models.SparkV1alpha1SparkConnect(
             metadata=models.IoK8sApimachineryPkgApisMetaV1ObjectMeta(
                 name="run-session",
@@ -382,7 +382,7 @@ class TestGetSparkConnectInfoFromCr:
         assert info.service_name == "run-session-svc"
 
     def test_parse_empty_status(self, minimal_spec):
-        """Parse CRD with empty status."""
+        """Parse CR with empty status."""
         spark_connect_cr = models.SparkV1alpha1SparkConnect(
             metadata=models.IoK8sApimachineryPkgApisMetaV1ObjectMeta(
                 name="new-session",

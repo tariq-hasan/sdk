@@ -36,7 +36,7 @@ from kubeflow.spark.backends.base import RuntimeBackend
 from kubeflow.spark.backends.kubernetes import constants
 from kubeflow.spark.backends.kubernetes.utils import (
     build_service_url,
-    build_spark_connect_crd,
+    build_spark_connect_cr,
     generate_session_name,
     get_spark_connect_info_from_cr,
 )
@@ -138,7 +138,7 @@ class KubernetesBackend(RuntimeBackend):
         # Extract Name option if present, or auto-generate
         name, filtered_options = self._extract_name_option(options)
 
-        spark_connect = build_spark_connect_crd(
+        spark_connect = build_spark_connect_cr(
             name=name,
             namespace=self.namespace,
             num_executors=num_executors,

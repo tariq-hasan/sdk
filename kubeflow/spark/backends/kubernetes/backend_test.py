@@ -177,10 +177,7 @@ def _mock_create(*args, **kw):
         return create_error_thread(multiprocessing.TimeoutError())
     elif namespace == RUNTIME:
         return create_error_thread(RuntimeError())
-    body = kw.get("body", {})
-    return create_mock_thread(
-        response={"metadata": body.get("metadata", {}), "status": {"state": "Provisioning"}}
-    )
+    return create_mock_thread(response=mock_create_response(**kw))
 
 
 def _mock_get(*args, **kw):
@@ -225,20 +222,7 @@ def _mock_list(*args, **kw):
         return create_error_thread(multiprocessing.TimeoutError())
     elif namespace == RUNTIME:
         return create_error_thread(RuntimeError())
-    return create_mock_thread(
-        response={
-            "items": [
-                {
-                    "metadata": {"name": "session-1", "namespace": DEFAULT_NAMESPACE},
-                    "status": {"state": "Ready"},
-                },
-                {
-                    "metadata": {"name": "session-2", "namespace": DEFAULT_NAMESPACE},
-                    "status": {"state": "Provisioning"},
-                },
-            ]
-        }
-    )
+    return create_mock_thread(response=mock_list_response())
 
 
 def _mock_read_logs(*args, **kw):

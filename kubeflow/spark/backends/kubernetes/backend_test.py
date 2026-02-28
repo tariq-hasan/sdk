@@ -17,10 +17,12 @@
 import multiprocessing
 from unittest.mock import Mock, patch
 
+from kubeflow_spark_api import models
 from kubernetes.client import ApiException
 import pytest
 
 from kubeflow.common.types import KubernetesBackendConfig
+from kubeflow.spark.backends.kubernetes import constants
 from kubeflow.spark.backends.kubernetes.backend import KubernetesBackend
 from kubeflow.spark.backends.kubernetes.utils import validate_spark_connect_url
 from kubeflow.spark.test.common import (
@@ -85,27 +87,80 @@ def create_error_thread(exc: Exception):
     return mock_thread
 
 
+def get_spark_connect(
+    name: str,
+    namespace: str = DEFAULT_NAMESPACE,
+    state: str | None = None,
+    server_status: models.SparkV1alpha1SparkConnectServerStatus | None = None,
+) -> models.SparkV1alpha1SparkConnect:
+    """Create a mock SparkConnect model for testing."""
+    return models.SparkV1alpha1SparkConnect(
+        api_version=f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+        kind=constants.SPARK_CONNECT_KIND,
+        metadata=models.IoK8sApimachineryPkgApisMetaV1ObjectMeta(
+            name=name,
+            namespace=namespace,
+        ),
+        spec=models.SparkV1alpha1SparkConnectSpec(
+            spark_version=constants.DEFAULT_SPARK_VERSION,
+            image=constants.DEFAULT_SPARK_IMAGE,
+            server=models.SparkV1alpha1ServerSpec(
+                cores=constants.DEFAULT_DRIVER_CPU,
+                memory=constants.DEFAULT_DRIVER_MEMORY,
+            ),
+            executor=models.SparkV1alpha1ExecutorSpec(
+                instances=2,
+                cores=constants.DEFAULT_EXECUTOR_CPU,
+                memory=constants.DEFAULT_EXECUTOR_MEMORY,
+            ),
+        ),
+        status=models.SparkV1alpha1SparkConnectStatus(
+            state=state,
+            server=server_status,
+        )
+        if state
+        else None,
+    )
+
+
 def mock_get_response(name: str) -> dict:
-    """Return mock CRD response based on session name."""
+    """Return mock CR response based on session name."""
     if name == SPARK_CONNECT_READY:
-        return {
-            "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
-            "status": {
-                "state": "Ready",
-                "server": {"podName": f"{name}-0", "podIp": "10.0.0.5"},
-            },
-        }
+        return get_spark_connect(
+            name=name,
+            state="Ready",
+            server_status=models.SparkV1alpha1SparkConnectServerStatus(
+                pod_name=f"{name}-0",
+                pod_ip="10.0.0.5",
+            ),
+        ).to_dict()
     elif name == SPARK_CONNECT_PROVISIONING:
-        return {
-            "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
-            "status": {"state": "Provisioning"},
-        }
+        return get_spark_connect(name=name, state="Provisioning").to_dict()
     elif name == SPARK_CONNECT_FAILED:
-        return {
-            "metadata": {"name": name, "namespace": DEFAULT_NAMESPACE},
-            "status": {"state": "Failed"},
-        }
+        return get_spark_connect(name=name, state="Failed").to_dict()
     raise ApiException(status=404, reason="Not Found")
+
+
+def mock_list_response(*args, **kwargs) -> dict:
+    """Return mock list response."""
+    spark_connect_list = models.SparkV1alpha1SparkConnectList(
+        api_version=f"{constants.SPARK_CONNECT_GROUP}/{constants.SPARK_CONNECT_VERSION}",
+        kind="SparkConnectList",
+        items=[
+            get_spark_connect(name="session-1", state="Ready"),
+            get_spark_connect(name="session-2", state="Provisioning"),
+        ],
+    )
+    return spark_connect_list.to_dict()
+
+
+def mock_create_response(*args, **kwargs) -> dict:
+    """Return mock create response."""
+    body = kwargs.get("body", {})
+    # Parse the request body and add status
+    spark_connect = models.SparkV1alpha1SparkConnect.from_dict(body)
+    spark_connect.status = models.SparkV1alpha1SparkConnectStatus(state="Provisioning")
+    return spark_connect.to_dict()
 
 
 def mock_delete_response(name: str) -> None:
@@ -122,10 +177,7 @@ def _mock_create(*args, **kw):
         return create_error_thread(multiprocessing.TimeoutError())
     elif namespace == RUNTIME:
         return create_error_thread(RuntimeError())
-    body = kw.get("body", {})
-    return create_mock_thread(
-        response={"metadata": body.get("metadata", {}), "status": {"state": "Provisioning"}}
-    )
+    return create_mock_thread(response=mock_create_response(**kw))
 
 
 def _mock_get(*args, **kw):
@@ -170,20 +222,7 @@ def _mock_list(*args, **kw):
         return create_error_thread(multiprocessing.TimeoutError())
     elif namespace == RUNTIME:
         return create_error_thread(RuntimeError())
-    return create_mock_thread(
-        response={
-            "items": [
-                {
-                    "metadata": {"name": "session-1", "namespace": DEFAULT_NAMESPACE},
-                    "status": {"state": "Ready"},
-                },
-                {
-                    "metadata": {"name": "session-2", "namespace": DEFAULT_NAMESPACE},
-                    "status": {"state": "Provisioning"},
-                },
-            ]
-        }
-    )
+    return create_mock_thread(response=mock_list_response())
 
 
 def _mock_read_logs(*args, **kw):
